@@ -1,22 +1,20 @@
+#include <Wire.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <Adafruit_BMP280.h>
 
-// Initialize all pointers
+// Initialize BLE and BMP280
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic_1 = NULL; // Temperature
 BLECharacteristic* pCharacteristic_2 = NULL; // Pressure
-BLEDescriptor *pDescr_1;
 BLE2902 *pBLE2902_1;
 BLE2902 *pBLE2902_2;
+Adafruit_BMP280 bmp;
 
-// Some variables to keep track on device connected
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-
-Adafruit_BMP280 bmp;
 
 #define SERVICE_UUID          "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID_1 "beb5483e-36e1-4688-b7f5-ea07361b26a8" // Temperature
@@ -26,17 +24,15 @@ class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
     };
-
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
     }
 };
 
 void setup() {
-  Serial.begin(9600);
-  
+  Serial.begin(115200);
   if (!bmp.begin(0x76)) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    Serial.println("Could not find a valid BMP280 sensor!");
     while (1) delay(10);
   }
 
@@ -49,13 +45,11 @@ void setup() {
   BLEDevice::init("ESP32_BMP280");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
-  
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
   pCharacteristic_1 = pService->createCharacteristic(
                       CHARACTERISTIC_UUID_1,
                       BLECharacteristic::PROPERTY_NOTIFY);
-  
   pCharacteristic_2 = pService->createCharacteristic(
                       CHARACTERISTIC_UUID_2,
                       BLECharacteristic::PROPERTY_NOTIFY);
@@ -69,7 +63,6 @@ void setup() {
   pCharacteristic_2->addDescriptor(pBLE2902_2);
 
   pService->start();
-
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   BLEDevice::startAdvertising();
@@ -79,7 +72,7 @@ void setup() {
 void loop() {
   if (deviceConnected) {
     float temperature = bmp.readTemperature();
-    float pressure = bmp.readPressure() / 100.0F; // Convert to hPa
+    float pressure = bmp.readPressure() / 100.0F;
 
     Serial.print("Temperature: ");
     Serial.print(temperature);
@@ -89,10 +82,9 @@ void loop() {
     Serial.print(pressure);
     Serial.println(" hPa");
 
-    pCharacteristic_1->setValue(std::to_string(temperature));
+    pCharacteristic_1->setValue(temperature);
     pCharacteristic_1->notify();
-
-    pCharacteristic_2->setValue(std::to_string(pressure));
+    pCharacteristic_2->setValue(pressure);
     pCharacteristic_2->notify();
 
     delay(1000);
