@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Wire.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -5,10 +6,13 @@
 #include <BLE2902.h>
 #include <Adafruit_BMP280.h>
 
-// Initialize BLE and BMP280
+#define SERVICE_UUID          "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID_1 "ee026418-ab66-4a49-bc25-3f7c2e8f1881" // Temperature
+#define CHARACTERISTIC_UUID_2 "6d3f910b-d335-421e-90cf-49ab9027a533" // Pressure
+
 BLEServer* pServer = NULL;
-BLECharacteristic* pCharacteristic_1 = NULL; // Temperature
-BLECharacteristic* pCharacteristic_2 = NULL; // Pressure
+BLECharacteristic* pCharacteristic_1 = NULL;
+BLECharacteristic* pCharacteristic_2 = NULL;
 BLE2902 *pBLE2902_1;
 BLE2902 *pBLE2902_2;
 Adafruit_BMP280 bmp;
@@ -16,14 +20,10 @@ Adafruit_BMP280 bmp;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-#define SERVICE_UUID          "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID_1 "ee026418-ab66-4a49-bc25-3f7c2e8f1881" // Temperature
-#define CHARACTERISTIC_UUID_2 "6d3f910b-d335-421e-90cf-49ab9027a533" // Pressure
-
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
-    };
+    }
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
     }
@@ -42,7 +42,7 @@ void setup() {
                   Adafruit_BMP280::FILTER_X16,
                   Adafruit_BMP280::STANDBY_MS_500);
 
-  BLEDevice::init("ESP32_BMP280");
+  BLEDevice::init("ESP32_BMP280_Server");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   BLEService *pService = pServer->createService(SERVICE_UUID);
@@ -74,17 +74,23 @@ void loop() {
     float temperature = bmp.readTemperature();
     float pressure = bmp.readPressure() / 100.0F;
 
-    Serial.print("Temperature: ");
+    Serial.print("Sending Temperature: ");
     Serial.print(temperature);
     Serial.println(" *C");
 
-    Serial.print("Pressure: ");
+    Serial.print("Sending Pressure: ");
     Serial.print(pressure);
     Serial.println(" hPa");
 
-    pCharacteristic_1->setValue(temperature);
+    // Send temperature and pressure as strings over BLE
+
+    String tempStr = String(temperature, 2);
+    String pressStr = String(pressure, 2);
+
+    pCharacteristic_1->setValue(tempStr.c_str());
     pCharacteristic_1->notify();
-    pCharacteristic_2->setValue(pressure);
+    
+    pCharacteristic_2->setValue(pressStr.c_str());
     pCharacteristic_2->notify();
 
     delay(1000);
