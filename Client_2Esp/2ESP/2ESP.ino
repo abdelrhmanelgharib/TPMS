@@ -25,12 +25,14 @@ BLERemoteCharacteristic* pRemoteCharacteristic_2_2 = nullptr;
 
 void notifyCallback_1(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
     Serial.print("[Server 1] Received: ");
-    Serial.println(String((char*)pData));
+    Serial.println(String((char*)pData).substring(0, length));
+
 }
 
 void notifyCallback_2(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
     Serial.print("[Server 2] Received: ");
-    Serial.println(String((char*)pData));
+    Serial.println(String((char*)pData).substring(0, length));
+
 }
 
 bool connectToServer(BLEClient*& pClient, BLEAdvertisedDevice* myDevice, const char* tempUUID, const char* pressUUID, void (*notifyCallback)(BLERemoteCharacteristic*, uint8_t*, size_t, bool), int serverNum) {
@@ -56,11 +58,11 @@ bool connectToServer(BLEClient*& pClient, BLEAdvertisedDevice* myDevice, const c
 // class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 //     void onResult(BLEAdvertisedDevice advertisedDevice) {
 //         if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(BLEUUID(SERVICE_UUID))) {
-//             // if (!myDevice1) {
-//             //     myDevice1 = new BLEAdvertisedDevice(advertisedDevice);
-//             //     doConnect1 = true;
-//             //     Serial.printf("ADV device 1\n");
-//             // } 
+//             if (!myDevice1) {
+//                 myDevice1 = new BLEAdvertisedDevice(advertisedDevice);
+//                 doConnect1 = true;
+//                 Serial.printf("ADV device 1\n");
+//             } 
 //                else if (!myDevice2) {
 //                 myDevice2 = new BLEAdvertisedDevice(advertisedDevice);
 //                 doConnect2 = true;
