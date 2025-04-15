@@ -121,16 +121,35 @@ void setup() {
 }
 
 void loop() {
+    int failedAttempts = 0;
   // Attempt connection to Server 1 if flagged
   if (doConnect1 && myDevice1) {
+    Serial.println("[Server 1] Attempting to connect...");
     connected1 = connectToServer(pClient1, myDevice1, CHARACTERISTIC_UUID_1_SERVER1, CHARACTERISTIC_UUID_2_SERVER1, notifyCallback_1, 1);
+
+    if (!connected1) {
+      Serial.println("[Server 1] Connection failed. Rescanning...");
+      delete myDevice1;
+      myDevice1 = nullptr;
+      BLEDevice::getScan()->start(5, false);  // Re-scan to find the server again
+    }
+
     doConnect1 = false;
     delay(1000); // Allow time before starting connection to second server
   }
 
   // Attempt connection to Server 2 if flagged
   if (doConnect2 && myDevice2) {
+    Serial.println("[Server 2] Attempting to connect...");
     connected2 = connectToServer(pClient2, myDevice2, CHARACTERISTIC_UUID_1_SERVER2, CHARACTERISTIC_UUID_2_SERVER2, notifyCallback_2, 2);
+
+    if (!connected2) {
+      Serial.println("[Server 2] Connection failed. Rescanning...");
+      delete myDevice2;
+      myDevice2 = nullptr;
+      BLEDevice::getScan()->start(5, false);  // Re-scan to find the server again
+    }
+
     doConnect2 = false;
   }
 
@@ -153,5 +172,15 @@ void loop() {
     }
   }
 
+  // Optional: Auto re-scan every 10 seconds if either server is not connected
+  static unsigned long lastScan = 0;
+  if ((millis() - lastScan > 10000) && (!connected1 || !connected2)) {
+    Serial.println("[Client] Auto-rescanning for missing servers...");
+    BLEDevice::getScan()->start(5, false);
+    lastScan = millis();
+    failedAttempts++;
+  }
+
   delay(100); // Small delay to keep loop responsive
 }
+
