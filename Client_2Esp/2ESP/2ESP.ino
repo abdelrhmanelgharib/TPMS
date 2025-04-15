@@ -7,10 +7,10 @@
 
 // Define service and characteristic UUIDs for both servers
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID_1_SERVER1 "ee026418-ab66-4a49-bc25-3f7c2e8f1881" // Temp Server 1
-#define CHARACTERISTIC_UUID_2_SERVER1 "6d3f910b-d335-421e-90cf-49ab9027a533" // Pressure Server 1
-#define CHARACTERISTIC_UUID_1_SERVER2 "beb5483e-36e1-4688-b7f5-ea07361b26a8" // Temp Server 2
-#define CHARACTERISTIC_UUID_2_SERVER2 "1c95d5e3-d8f7-413a-bf3d-7a2e5d7be87e" // Pressure Server 2
+#define CHARACTERISTIC_UUID_1_SERVER1  "beb5483e-36e1-4688-b7f5-ea07361b26a8" // Temp Server 1
+#define CHARACTERISTIC_UUID_2_SERVER1  "1c95d5e3-d8f7-413a-bf3d-7a2e5d7be87e" // Pressure Server 1
+#define CHARACTERISTIC_UUID_1_SERVER2  "ee026418-ab66-4a49-bc25-3f7c2e8f1881"// Temp Server 2
+#define CHARACTERISTIC_UUID_2_SERVER2  "6d3f910b-d335-421e-90cf-49ab9027a533"// Pressure Server 2
 
 // Variables for storing the advertised server devices and their connection states
 BLEAdvertisedDevice* myDevice1 = nullptr;
@@ -44,29 +44,43 @@ void notifyCallback_2(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t
 bool connectToServer(BLEClient*& pClient, BLEAdvertisedDevice* myDevice, const char* tempUUID, const char* pressUUID, void (*notifyCallback)(BLERemoteCharacteristic*, uint8_t*, size_t, bool), int serverNum) {
   pClient = BLEDevice::createClient();
 
-  // Attempt to connect
+  Serial.printf("[Server %d] Attempting to connect...\n", serverNum);
   if (!pClient->connect(myDevice)) {
     Serial.printf("[Server %d] Failed to connect.\n", serverNum);
     return false;
   }
   Serial.printf("[Server %d] Connected!\n", serverNum);
+  // Add a delay to allow the server to finish initializing
+   delay(1000);  // Try increasing to 1000 if still flaky
 
-  // Try to get the remote service
+  // Discover the service
+  Serial.printf("[Server %d] Discovering service...\n", serverNum);
   BLERemoteService* pRemoteService = pClient->getService(SERVICE_UUID);
   if (!pRemoteService) {
-    Serial.printf("[Server %d] Service not found.\n", serverNum);
+    Serial.printf("[Server %d] Service not found. Disconnecting.\n", serverNum);
     pClient->disconnect();
     return false;
   }
 
-  // Try to get the temperature and pressure characteristics
+  // Discover characteristics
+  Serial.printf("[Server %d] Getting temperature characteristic...\n", serverNum);
   BLERemoteCharacteristic* tempChar = pRemoteService->getCharacteristic(tempUUID);
+  if (!tempChar) {
+    Serial.printf("[Server %d] Temperature characteristic not found.\n", serverNum);
+  } else if (tempChar->canNotify()) {
+    tempChar->registerForNotify(notifyCallback);
+    Serial.printf("[Server %d] Subscribed to temperature notifications.\n", serverNum);
+  }
+
+  Serial.printf("[Server %d] Getting pressure characteristic...\n", serverNum);
   BLERemoteCharacteristic* pressChar = pRemoteService->getCharacteristic(pressUUID);
-
-  // Register callbacks for notifications if supported
-  if (tempChar && tempChar->canNotify()) tempChar->registerForNotify(notifyCallback);
-  if (pressChar && pressChar->canNotify()) pressChar->registerForNotify(notifyCallback);
-
+  if (!pressChar) {
+    Serial.printf("[Server %d] Pressure characteristic not found.\n", serverNum);
+  } else if (pressChar->canNotify()) {
+    pressChar->registerForNotify(notifyCallback);
+    Serial.printf("[Server %d] Subscribed to pressure notifications.\n", serverNum);
+  }
+  
   return true;
 }
 
@@ -87,7 +101,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       }
 
       // Stop scanning once both devices are discovered
-      if (myDevice1 && myDevice2) {
+      if (myDevice1 != nullptr && myDevice2 != nullptr) {
         BLEDevice::getScan()->stop();
       }
     }
@@ -111,6 +125,7 @@ void loop() {
   if (doConnect1 && myDevice1) {
     connected1 = connectToServer(pClient1, myDevice1, CHARACTERISTIC_UUID_1_SERVER1, CHARACTERISTIC_UUID_2_SERVER1, notifyCallback_1, 1);
     doConnect1 = false;
+    delay(1000); // Allow time before starting connection to second server
   }
 
   // Attempt connection to Server 2 if flagged
