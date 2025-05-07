@@ -108,6 +108,30 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   }
 };
 
+void resetConnection(int serverNum) {
+  if (serverNum == 1) {
+    if (pClient1) {
+      pClient1->disconnect();
+      delete pClient1;
+      pClient1 = nullptr;
+    }
+    delete myDevice1;
+    myDevice1 = nullptr;
+    connected1 = false;
+    doConnect1 = false;
+  } else if (serverNum == 2) {
+    if (pClient2) {
+      pClient2->disconnect();
+      delete pClient2;
+      pClient2 = nullptr;
+    }
+    delete myDevice2;
+    myDevice2 = nullptr;
+    connected2 = false;
+    doConnect2 = false;
+  }
+}
+
 void setup() {
   Serial.begin(115200); // Start serial communication
 
@@ -121,19 +145,16 @@ void setup() {
 }
 
 void loop() {
-    int failedAttempts = 0;
   // Attempt connection to Server 1 if flagged
   if (doConnect1 && myDevice1) {
     Serial.println("[Server 1] Attempting to connect...");
     connected1 = connectToServer(pClient1, myDevice1, CHARACTERISTIC_UUID_1_SERVER1, CHARACTERISTIC_UUID_2_SERVER1, notifyCallback_1, 1);
 
     if (!connected1) {
-      Serial.println("[Server 1] Connection failed. Rescanning...");
-      delete myDevice1;
-      myDevice1 = nullptr;
+      Serial.println("[Server 1] Connection failed. Resetting.");
+      resetConnection(1);
       BLEDevice::getScan()->start(5, false);  // Re-scan to find the server again
     }
-
     doConnect1 = false;
     delay(1000); // Allow time before starting connection to second server
   }
@@ -144,12 +165,11 @@ void loop() {
     connected2 = connectToServer(pClient2, myDevice2, CHARACTERISTIC_UUID_1_SERVER2, CHARACTERISTIC_UUID_2_SERVER2, notifyCallback_2, 2);
 
     if (!connected2) {
-      Serial.println("[Server 2] Connection failed. Rescanning...");
-      delete myDevice2;
-      myDevice2 = nullptr;
-      BLEDevice::getScan()->start(5, false);  // Re-scan to find the server again
-    }
+      Serial.println("[Server 2] Connection failed. Resetting.");
+      resetConnection(2);
+	  BLEDevice::getScan()->start(5, false);  // Re-scan to find the server again
 
+    }
     doConnect2 = false;
   }
 
@@ -159,16 +179,16 @@ void loop() {
 
     // If Server 1 is disconnected, trigger reconnection
     if (connected1 && !pClient1->isConnected()) {
-      Serial.println("[Server 1] Disconnected.");
-      connected1 = false;
-      doConnect1 = true;
+      Serial.println("[Server 1] Disconnected. Resetting.");
+      resetConnection(1);
+      BLEDevice::getScan()->start(5, false);
     }
 
     // If Server 2 is disconnected, trigger reconnection
     if (connected2 && !pClient2->isConnected()) {
-      Serial.println("[Server 2] Disconnected.");
-      connected2 = false;
-      doConnect2 = true;
+      Serial.println("[Server 2] Disconnected. Resetting.");
+      resetConnection(2);
+      BLEDevice::getScan()->start(5, false);
     }
   }
 
@@ -178,9 +198,7 @@ void loop() {
     Serial.println("[Client] Auto-rescanning for missing servers...");
     BLEDevice::getScan()->start(5, false);
     lastScan = millis();
-    failedAttempts++;
   }
 
-  delay(100); // Small delay to keep loop responsive
+  delay(100);
 }
-
