@@ -28,13 +28,13 @@ unsigned long lastConnectionCheck = 0;
 const unsigned long connectionCheckInterval = 3000;
 
 void notifyCallback_1(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t length, bool isNotify) {
-  Serial.print("[Server 1] ");
+  Serial.print("[Received from Server 1] ");
   Serial.write(pData, length);
   Serial.println();
 }
 
 void notifyCallback_2(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t length, bool isNotify) {
-  Serial.print("[Server 2] ");
+  Serial.print("[Received from Server 2] ");
   Serial.write(pData, length);
   Serial.println();
 }
