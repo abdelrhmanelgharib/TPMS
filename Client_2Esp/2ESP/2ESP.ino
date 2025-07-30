@@ -11,11 +11,9 @@
 #define CHARACTERISTIC_UUID_TEMP_SERVER2 "ee026418-ab66-4a49-bc25-3f7c2e8f1881"
 #define CHARACTERISTIC_UUID_PRESS_SERVER2 "6d3f910b-d335-421e-90cf-49ab9027a533"
 
-// MAC addresses (update with actual values)
-const char* MAC_SERVER1 = "f0:24:f9:5a:ac:36";
-const char* MAC_SERVER2 = "8c:4f:00:28:8c:4a";
+const char* MAC_SERVER1 = "10:51:DB:AD:DF:02";
+const char* MAC_SERVER2 = "10:51:DB:AD:D6:E2";
 
-// Variables for storing the advertised server devices and their connection states
 BLEAdvertisedDevice* myDevice1 = nullptr;
 BLEAdvertisedDevice* myDevice2 = nullptr;
 bool doConnect1 = false, doConnect2 = false;
@@ -23,7 +21,6 @@ bool connected1 = false, connected2 = false;
 BLEClient* pClient1 = nullptr;
 BLEClient* pClient2 = nullptr;
 
-// Timing control for connection status check
 unsigned long lastConnectionCheck = 0;
 const unsigned long connectionCheckInterval = 3000;
 
@@ -69,8 +66,10 @@ bool connectToServer(BLEClient*& pClient, BLEAdvertisedDevice* device, const cha
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
+    String mac = advertisedDevice.getAddress().toString().c_str();
+    mac.toUpperCase();
+
     if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(BLEUUID(SERVICE_UUID))) {
-      String mac = advertisedDevice.getAddress().toString().c_str();
       if (mac == MAC_SERVER1 && !myDevice1) {
         myDevice1 = new BLEAdvertisedDevice(advertisedDevice);
         doConnect1 = true;
@@ -99,10 +98,13 @@ void resetConnection(int serverNum) {
 void setup() {
   Serial.begin(115200);
   BLEDevice::init("ESP32_Client");
+
   BLEScan* scan = BLEDevice::getScan();
   scan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  scan->setInterval(1349);
+  scan->setWindow(449);
   scan->setActiveScan(true);
-  scan->start(5, false);
+  scan->start(15, false);
 }
 
 void loop() {
@@ -120,13 +122,19 @@ void loop() {
 
   if (millis() - lastConnectionCheck > connectionCheckInterval) {
     lastConnectionCheck = millis();
-    if (connected1 && !pClient1->isConnected()) { resetConnection(1); BLEDevice::getScan()->start(5, false); }
-    if (connected2 && !pClient2->isConnected()) { resetConnection(2); BLEDevice::getScan()->start(5, false); }
+    if (connected1 && !pClient1->isConnected()) {
+      resetConnection(1);
+      BLEDevice::getScan()->start(10, false);
+    }
+    if (connected2 && !pClient2->isConnected()) {
+      resetConnection(2);
+      BLEDevice::getScan()->start(10, false);
+    }
   }
 
   static unsigned long lastScan = 0;
   if ((millis() - lastScan > 10000) && (!connected1 || !connected2)) {
-    BLEDevice::getScan()->start(5, false);
+    BLEDevice::getScan()->start(10, false);
     lastScan = millis();
   }
 
